@@ -18,3 +18,10 @@ class ParserRegistry:
             return self._parsers[format_name]
         except KeyError as error:
             raise UnsupportedParserError(format_name) from error
+
+
+def create_default_registry() -> ParserRegistry:
+    from app.parsing.hwpx import HwpxParser
+    from app.parsing.pdf import PdfParser
+
+    return ParserRegistry({"pdf": PdfParser(), "hwpx": HwpxParser()})

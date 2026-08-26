@@ -179,6 +179,10 @@ class Document(TimestampMixin, Base):
         back_populates="document", cascade="all, delete-orphan", passive_deletes=True
     )
 
+    @property
+    def block_count(self) -> int:
+        return len(self.blocks)
+
 
 class DocumentBlockRecord(Base):
     __tablename__ = "document_blocks"

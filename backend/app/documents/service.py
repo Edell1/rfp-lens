@@ -114,3 +114,17 @@ def delete_owned_document(
     db.delete(document)
     db.commit()
     LocalFileStore(settings.storage_root).delete(storage_key)
+
+
+def mark_document_for_processing(db: Session, document: Document) -> Document:
+    if document.state in {DocumentState.PARSING, DocumentState.ANALYZING}:
+        raise HTTPException(
+            status_code=409,
+            detail=_validation_detail("document_already_processing"),
+        )
+    document.state = DocumentState.PARSING
+    document.error_code = None
+    document.error_message = None
+    db.commit()
+    db.refresh(document)
+    return document
