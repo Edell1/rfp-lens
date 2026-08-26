@@ -18,6 +18,7 @@ from app.db.models import (
     Requirement,
 )
 from app.parsing.types import DocumentBlock, SourceLocator
+from app.settings.service import resolve_runtime_settings
 
 
 task_settings = get_settings()
@@ -73,7 +74,9 @@ def run_analysis(document_id: str) -> str:
         ]
 
         try:
-            provider = create_requirement_provider(task_settings)
+            provider = create_requirement_provider(
+                resolve_runtime_settings(db, task_settings)
+            )
             outcome = AnalysisService(provider).analyze(blocks)
         except Exception as error:
             job.state = JobState.FAILED

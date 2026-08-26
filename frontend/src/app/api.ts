@@ -40,6 +40,24 @@ export type RequirementCategory =
 export type ReviewState = "pending" | "confirmed" | "rejected" | "edited";
 export type Importance = "required" | "high" | "medium" | "low";
 export type ComplianceStatus = "not_started" | "in_progress" | "complete" | "not_applicable";
+export type AiProvider = "openai" | "fake" | "local";
+
+export interface AnalysisSettings {
+  ai_provider: AiProvider;
+  openai_model: string;
+  openai_api_key_set: boolean;
+  local_base_url: string;
+  local_model: string;
+  updated_at: string;
+}
+
+export interface AnalysisSettingsPatch {
+  ai_provider?: AiProvider;
+  openai_api_key?: string;
+  openai_model?: string;
+  local_base_url?: string;
+  local_model?: string;
+}
 
 export interface SourceLocator {
   format: "pdf" | "hwpx";
@@ -241,5 +259,13 @@ export const api = {
   },
   downloadCompliance(projectId: string): Promise<Blob> {
     return download(`/projects/${projectId}/compliance.xlsx`);
+  },
+  getAnalysisSettings(): Promise<AnalysisSettings> {
+    return request<AnalysisSettings>("/settings/analysis");
+  },
+  patchAnalysisSettings(payload: AnalysisSettingsPatch): Promise<AnalysisSettings> {
+    return request<AnalysisSettings>("/settings/analysis", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
   },
 };

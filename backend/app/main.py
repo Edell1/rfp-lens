@@ -9,6 +9,7 @@ from app.compliance.router import router as compliance_router
 from app.core.config import Settings, get_settings
 from app.documents.router import router as documents_router
 from app.projects.router import router as projects_router
+from app.settings.router import router as settings_router
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -33,6 +34,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects_router)
     app.include_router(documents_router)
     app.include_router(compliance_router)
+    app.include_router(settings_router)
 
     @app.get("/api/health")
     def health() -> dict[str, str]:

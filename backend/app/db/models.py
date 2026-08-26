@@ -337,3 +337,16 @@ class ComplianceItem(TimestampMixin, Base):
 
     project: Mapped[Project] = relationship(back_populates="compliance_items")
     requirement: Mapped[Requirement] = relationship(back_populates="compliance_item")
+
+
+class AnalysisSettingsRecord(TimestampMixin, Base):
+    """Single-row runtime override for the requirement extraction provider."""
+
+    __tablename__ = "analysis_settings"
+
+    id: Mapped[int] = mapped_column(primary_key=True, default=1)
+    ai_provider: Mapped[str] = mapped_column(String(20), nullable=False)
+    openai_api_key: Mapped[str | None] = mapped_column(String(512))
+    openai_model: Mapped[str | None] = mapped_column(String(120))
+    local_base_url: Mapped[str | None] = mapped_column(String(500))
+    local_model: Mapped[str | None] = mapped_column(String(120))
