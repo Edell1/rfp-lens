@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models import Project
+from app.db.models import Document, Project
 
 
 def get_owned_project(
@@ -46,6 +46,12 @@ def update_project(db: Session, project: Project, name: str) -> Project:
     return project
 
 
-def delete_project(db: Session, project: Project) -> None:
+def delete_project(db: Session, project: Project) -> list[str]:
+    storage_keys = list(
+        db.scalars(
+            select(Document.storage_key).where(Document.project_id == project.id)
+        )
+    )
     db.delete(project)
     db.commit()
+    return storage_keys

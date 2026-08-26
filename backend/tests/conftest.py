@@ -75,10 +75,11 @@ def user_factory(db_session: Session) -> Callable[[str], User]:
 
 
 @pytest.fixture
-def client(db_session: Session) -> Generator[TestClient, None, None]:
+def client(db_session: Session, tmp_path) -> Generator[TestClient, None, None]:
     settings = Settings(
         environment="test",
         jwt_secret="test-secret-that-is-long-enough-for-hs256",
+        storage_root=tmp_path / "storage",
     )
     app = create_app(settings)
 

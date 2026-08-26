@@ -1,8 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Response, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Response, status
 
 from app.auth.dependencies import CurrentUser, DatabaseSession
+from app.core.config import Settings, get_settings
+from app.documents.storage import LocalFileStore
 from app.projects.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from app.projects.service import (
     create_project,
@@ -48,7 +52,15 @@ def update(
 
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete(project_id: UUID, db: DatabaseSession, user: CurrentUser) -> Response:
+def delete(
+    project_id: UUID,
+    db: DatabaseSession,
+    user: CurrentUser,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> Response:
     project = get_owned_project(db, project_id, user.id)
-    delete_project(db, project)
+    storage_keys = delete_project(db, project)
+    store = LocalFileStore(settings.storage_root)
+    for storage_key in storage_keys:
+        store.delete(storage_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
