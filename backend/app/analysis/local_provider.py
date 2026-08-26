@@ -7,6 +7,47 @@ from pydantic import ValidationError
 from app.analysis.prompt import PROMPT_VERSION, SYSTEM_PROMPT, render_chunk_prompt
 from app.analysis.provider import ProviderFailure
 from app.analysis.types import AnalysisChunk, ExtractionBatch, ExtractionUsage
+from app.db.models import RequirementCategory
+
+
+# Flat, inline schema without "$ref"/"$defs": llama.cpp-based servers such as
+# LM Studio and Ollama reject the nested schema emitted by model_json_schema().
+EXTRACTION_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "requirements": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "requirement": {"type": "string", "minLength": 3},
+                    "category": {
+                        "type": "string",
+                        "enum": [category.value for category in RequirementCategory],
+                    },
+                    "mandatory": {"type": "boolean"},
+                    "source_block_id": {"type": "string", "minLength": 1},
+                    "evidence_quote": {"type": "string", "minLength": 1},
+                    "confidence": {
+                        "type": "string",
+                        "enum": ["high", "medium", "low"],
+                    },
+                },
+                "required": [
+                    "requirement",
+                    "category",
+                    "mandatory",
+                    "source_block_id",
+                    "evidence_quote",
+                    "confidence",
+                ],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["requirements"],
+    "additionalProperties": False,
+}
 
 
 class LocalRequirementProvider:
@@ -39,23 +80,31 @@ class LocalRequirementProvider:
                     "type": "json_schema",
                     "json_schema": {
                         "name": "extraction_batch",
-                        "schema": ExtractionBatch.model_json_schema(),
+                        "schema": EXTRACTION_JSON_SCHEMA,
                     },
                 },
             )
         except TimeoutError:
             raise
         except Exception as error:
-            raise ProviderFailure("Local extraction request failed") from error
+            raise ProviderFailure(
+                f"Local extraction request failed: {_error_summary(error)}"
+            ) from error
 
         choices = list(getattr(response, "choices", []) or [])
-        content = (
-            getattr(choices[0].message, "content", None) if choices else None
-        )
-        if not content:
+        message = choices[0].message if choices else None
+        content = getattr(message, "content", None) or ""
+        if not content.strip():
+            # Reasoning models (e.g. Qwen3 via LM Studio) may place the final
+            # answer in the separate reasoning_content field.
+            extra = getattr(message, "model_extra", None) or {}
+            content = str(extra.get("reasoning_content") or "")
+        if not content.strip():
             raise ProviderFailure("Local model returned no structured extraction")
         try:
-            batch = ExtractionBatch.model_validate_json(content)
+            batch = ExtractionBatch.model_validate_json(
+                _extract_json_payload(content)
+            )
         except ValidationError as error:
             raise ProviderFailure("Local model returned invalid extraction schema") from error
 
@@ -68,3 +117,17 @@ class LocalRequirementProvider:
             input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
             output_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
         )
+
+
+def _error_summary(error: Exception, limit: int = 200) -> str:
+    message = str(error).strip().replace("\n", " ")
+    return message[:limit] if message else error.__class__.__name__
+
+
+def _extract_json_payload(text: str) -> str:
+    """Trim stray reasoning prose around the outermost JSON object."""
+    start = text.find("{")
+    end = text.rfind("}")
+    if 0 <= start < end:
+        return text[start : end + 1]
+    return text

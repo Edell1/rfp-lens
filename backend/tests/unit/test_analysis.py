@@ -254,12 +254,45 @@ def test_local_adapter_sends_schema_and_parses_batch() -> None:
     assert captured["model"] == "qwen2.5:7b"
     assert captured["response_format"]["type"] == "json_schema"
     schema = captured["response_format"]["json_schema"]["schema"]
-    assert schema["title"] == "ExtractionBatch"
+    category = (
+        schema["properties"]["requirements"]["items"]["properties"]["category"]
+    )
+    assert category["enum"] == [value.value for value in RequirementCategory]
+    assert "$defs" not in schema and "$ref" not in str(schema)
     assert len(requirements) == 1
     assert requirements[0].evidence_quote == "정부출연금은 총 5억원 이내이다."
     assert usage.provider == "local"
     assert usage.input_tokens == 13
     assert usage.output_tokens == 9
+
+
+def test_local_adapter_falls_back_to_reasoning_content() -> None:
+    payload = '{"requirements": [' + extracted().model_dump_json() + "]}"
+
+    class Completions:
+        def create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content="", model_extra={"reasoning_content": payload}
+                        ),
+                    )
+                ],
+                usage=SimpleNamespace(prompt_tokens=5, completion_tokens=20),
+            )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    provider = LocalRequirementProvider(
+        base_url="http://localhost:1234/v1", model="m", client=client
+    )
+    chunk = chunk_blocks([make_block("b1", "정부출연금은 총 5억원 이내이다.")])
+
+    requirements, usage = provider.extract(chunk)
+
+    assert len(requirements) == 1
+    assert requirements[0].source_block_id == "b1"
+    assert usage.output_tokens == 20
 
 
 def test_local_adapter_rejects_invalid_payload() -> None:
