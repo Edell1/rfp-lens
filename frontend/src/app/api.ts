@@ -40,6 +40,30 @@ export type RequirementCategory =
 export type ReviewState = "pending" | "confirmed" | "rejected" | "edited";
 export type Importance = "required" | "high" | "medium" | "low";
 export type ComplianceStatus = "not_started" | "in_progress" | "complete" | "not_applicable";
+export type AiProvider = "openai" | "fake" | "local";
+
+export interface AnalysisSettings {
+  ai_provider: AiProvider;
+  openai_model: string;
+  openai_api_key_set: boolean;
+  local_base_url: string;
+  local_model: string;
+  updated_at: string;
+}
+
+export interface AnalysisSettingsPatch {
+  ai_provider?: AiProvider;
+  openai_api_key?: string;
+  openai_model?: string;
+  local_base_url?: string;
+  local_model?: string;
+}
+
+export interface ConnectionTestResult {
+  ok: boolean;
+  detail: string;
+  models: string[];
+}
 
 export interface SourceLocator {
   format: "pdf" | "hwpx";
@@ -214,6 +238,11 @@ export const api = {
       { method: "POST" },
     );
   },
+  deleteDocument(projectId: string, documentId: string): Promise<void> {
+    return request<void>(`/projects/${projectId}/documents/${documentId}`, {
+      method: "DELETE",
+    });
+  },
   listRequirements(projectId: string, filters: { category?: RequirementCategory; review_state?: ReviewState } = {}): Promise<RequirementRecord[]> {
     const params = new URLSearchParams();
     if (filters.category) params.set("category", filters.category);
@@ -236,5 +265,18 @@ export const api = {
   },
   downloadCompliance(projectId: string): Promise<Blob> {
     return download(`/projects/${projectId}/compliance.xlsx`);
+  },
+  getAnalysisSettings(): Promise<AnalysisSettings> {
+    return request<AnalysisSettings>("/settings/analysis");
+  },
+  patchAnalysisSettings(payload: AnalysisSettingsPatch): Promise<AnalysisSettings> {
+    return request<AnalysisSettings>("/settings/analysis", {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+  },
+  testAnalysisConnection(payload: AnalysisSettingsPatch): Promise<ConnectionTestResult> {
+    return request<ConnectionTestResult>("/settings/analysis/test", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
   },
 };

@@ -173,7 +173,9 @@ def run_evaluation(
 
 def main(argv: list[str] | None = None) -> int:
     parser = ArgumentParser(description="Run RFP Lens extraction evaluations.")
-    parser.add_argument("--provider", choices=["fake", "openai"], default="fake")
+    parser.add_argument(
+        "--provider", choices=["fake", "openai", "local"], default="fake"
+    )
     parser.add_argument("--output", type=Path, default=Path("eval-results.json"))
     parser.add_argument("--cases-dir", type=Path, default=None)
     args = parser.parse_args(argv)

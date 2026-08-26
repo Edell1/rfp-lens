@@ -27,6 +27,69 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build: ./backend
+    image: rfp-lens-backend
+    environment: &backend_env
+      RFP_LENS_DATABASE_URL: postgresql+psycopg://rfp_lens:rfp_lens@postgres:5432/rfp_lens
+      RFP_LENS_REDIS_URL: redis://redis:6379/0
+      RFP_LENS_STORAGE_ROOT: /data/storage
+      RFP_LENS_JWT_SECRET: ${RFP_LENS_JWT_SECRET:-dev-only-secret-change-me-before-production}
+      RFP_LENS_ENVIRONMENT: ${RFP_LENS_ENVIRONMENT:-development}
+      RFP_LENS_AI_PROVIDER: ${RFP_LENS_AI_PROVIDER:-openai}
+      RFP_LENS_LOCAL_BASE_URL: ${RFP_LENS_LOCAL_BASE_URL:-http://host.docker.internal:11434/v1}
+      RFP_LENS_OPENAI_API_KEY: ${RFP_LENS_OPENAI_API_KEY:-}
+      RFP_LENS_OPENAI_MODEL: ${RFP_LENS_OPENAI_MODEL:-gpt-5-mini}
+      RFP_LENS_FRONTEND_ORIGINS: '["http://localhost:8080","http://localhost:5173"]'
+    volumes:
+      - storage_data:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  worker:
+    build: ./backend
+    image: rfp-lens-backend
+    command: ["celery", "-A", "app.core.celery_app.celery_app", "worker", "--loglevel=info"]
+    environment: *backend_env
+    volumes:
+      - storage_data:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.core.celery_app.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 | grep -q pong"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 30s
+
+  web:
+    build: ./frontend
+    image: rfp-lens-web
+    ports:
+      - "8080:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
 volumes:
   postgres_data:
   redis_data:
+  storage_data:

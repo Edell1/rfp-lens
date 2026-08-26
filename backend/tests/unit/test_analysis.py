@@ -3,10 +3,11 @@ from types import SimpleNamespace
 import pytest
 
 from app.analysis.chunking import chunk_blocks
+from app.analysis.local_provider import LocalRequirementProvider
 from app.analysis.openai_provider import OpenAIRequirementProvider
 from app.analysis.provider import AnalysisService, ProviderFailure
 from app.analysis.service import create_requirement_provider
-from app.analysis.types import ExtractedRequirement, ExtractionUsage
+from app.analysis.types import ExtractedRequirement, ExtractionBatch, ExtractionUsage
 from app.analysis.validator import merge_duplicates, validate_requirement
 from app.core.config import Settings
 from app.db.models import RequirementCategory, ReviewState
@@ -193,3 +194,136 @@ def test_fake_provider_is_rejected_outside_test_or_demo() -> None:
 
     with pytest.raises(RuntimeError, match="only in test or demo"):
         create_requirement_provider(settings)
+
+
+def local_settings(**overrides) -> Settings:
+    return Settings(
+        environment="demo",
+        jwt_secret="local-provider-secret-long-enough",
+        ai_provider="local",
+        **overrides,
+    )
+
+
+def test_local_factory_requires_model_name() -> None:
+    with pytest.raises(RuntimeError, match="RFP_LENS_LOCAL_MODEL"):
+        create_requirement_provider(local_settings())
+
+
+def test_local_factory_uses_configured_endpoint_and_model() -> None:
+    provider = create_requirement_provider(
+        local_settings(
+            local_model="qwen2.5:7b", local_base_url="http://localhost:11434/v1"
+        )
+    )
+
+    assert isinstance(provider, LocalRequirementProvider)
+    assert provider.model == "qwen2.5:7b"
+    assert provider.base_url == "http://localhost:11434/v1"
+
+
+def test_local_adapter_sends_schema_and_parses_batch() -> None:
+    captured = {}
+
+    class Completions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=ExtractionBatch(
+                                requirements=[extracted()]
+                            ).model_dump_json()
+                        )
+                    )
+                ],
+                usage=SimpleNamespace(prompt_tokens=13, completion_tokens=9),
+            )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    provider = LocalRequirementProvider(
+        base_url="http://localhost:11434/v1",
+        model="qwen2.5:7b",
+        client=client,
+    )
+    chunk = chunk_blocks([make_block("b1", "정부출연금은 총 5억원 이내이다.")])
+
+    requirements, usage = provider.extract(chunk)
+
+    assert captured["model"] == "qwen2.5:7b"
+    assert captured["response_format"]["type"] == "json_schema"
+    schema = captured["response_format"]["json_schema"]["schema"]
+    category = (
+        schema["properties"]["requirements"]["items"]["properties"]["category"]
+    )
+    assert category["enum"] == [value.value for value in RequirementCategory]
+    assert "$defs" not in schema and "$ref" not in str(schema)
+    assert len(requirements) == 1
+    assert requirements[0].evidence_quote == "정부출연금은 총 5억원 이내이다."
+    assert usage.provider == "local"
+    assert usage.input_tokens == 13
+    assert usage.output_tokens == 9
+
+
+def test_local_adapter_falls_back_to_reasoning_content() -> None:
+    payload = '{"requirements": [' + extracted().model_dump_json() + "]}"
+
+    class Completions:
+        def create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content="", model_extra={"reasoning_content": payload}
+                        ),
+                    )
+                ],
+                usage=SimpleNamespace(prompt_tokens=5, completion_tokens=20),
+            )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    provider = LocalRequirementProvider(
+        base_url="http://localhost:1234/v1", model="m", client=client
+    )
+    chunk = chunk_blocks([make_block("b1", "정부출연금은 총 5억원 이내이다.")])
+
+    requirements, usage = provider.extract(chunk)
+
+    assert len(requirements) == 1
+    assert requirements[0].source_block_id == "b1"
+    assert usage.output_tokens == 20
+
+
+def test_local_adapter_rejects_invalid_payload() -> None:
+    class Completions:
+        def create(self, **kwargs):
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="not json"))],
+                usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1),
+            )
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=Completions()))
+    provider = LocalRequirementProvider(
+        base_url="http://localhost:11434/v1", model="m", client=client
+    )
+    chunk = chunk_blocks([make_block("b1", "지원 자격 문단")])
+
+    with pytest.raises(ProviderFailure, match="invalid extraction schema"):
+        provider.extract(chunk)
+
+
+def test_local_adapter_wraps_connection_errors() -> None:
+    class Failing:
+        def create(self, **kwargs):
+            raise ConnectionError("refused")
+
+    provider = LocalRequirementProvider(
+        base_url="http://localhost:11434/v1",
+        model="m",
+        client=SimpleNamespace(chat=SimpleNamespace(completions=Failing())),
+    )
+    chunk = chunk_blocks([make_block("b1", "텍스트")])
+
+    with pytest.raises(ProviderFailure, match="Local extraction request failed"):
+        provider.extract(chunk)

@@ -25,7 +25,7 @@ export function ProjectListPage(): React.ReactElement {
     if (normalized) createProject.mutate(normalized);
   }
 
-  return <main className="app-shell"><header className="topbar"><Link to="/projects" className="brand">RFP <em>Lens</em></Link><div><span className="muted">{user?.email}</span><button className="text-button" onClick={logout}>로그아웃</button></div></header>
+  return <main className="app-shell"><header className="topbar"><Link to="/projects" className="brand">RFP <em>Lens</em></Link><div><span className="muted">{user?.email}</span><Link className="text-button" to="/settings">분석 설정</Link><button className="text-button" onClick={logout}>로그아웃</button></div></header>
     <section className="page-heading"><p className="eyebrow">WORKSPACES</p><h1>제안 준비 프로젝트</h1><p>공고문을 올리고, 근거가 연결된 요구사항을 관리하세요.</p></section>
     <section className="create-project"><form onSubmit={submit}><label htmlFor="project-name">새 프로젝트 이름</label><div className="inline-form"><input id="project-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="예: 2027 스마트제조 R&D" maxLength={120} required /><button type="submit" disabled={createProject.isPending}>프로젝트 만들기</button></div>{createProject.isError && <p className="form-error" role="alert">프로젝트를 만들지 못했습니다.</p>}</form></section>
     {projects.isLoading && <p>프로젝트를 불러오는 중…</p>}
