@@ -7,8 +7,12 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
+from fastapi.testclient import TestClient
 
+from app.core.config import Settings
+from app.core.db import get_db
 from app.db.models import Base, User
+from app.main import create_app
 
 
 TEST_DATABASE_URL = os.getenv(
@@ -68,3 +72,19 @@ def user_factory(db_session: Session) -> Callable[[str], User]:
         return user
 
     return create_user
+
+
+@pytest.fixture
+def client(db_session: Session) -> Generator[TestClient, None, None]:
+    settings = Settings(
+        environment="test",
+        jwt_secret="test-secret-that-is-long-enough-for-hs256",
+    )
+    app = create_app(settings)
+
+    def override_get_db() -> Generator[Session, None, None]:
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
