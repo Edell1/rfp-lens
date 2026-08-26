@@ -15,12 +15,17 @@ import { documentPollingInterval, ProjectPage } from "../src/features/projects/P
 const baseUrl = "http://localhost:8000/api";
 let activeDocument: DocumentRecord;
 const processRequest = vi.fn();
+const deleteRequest = vi.fn();
 const server = setupServer(
   http.get(`${baseUrl}/projects/project-1/documents`, () => HttpResponse.json([activeDocument])),
   http.post(`${baseUrl}/projects/project-1/documents`, () => HttpResponse.json(activeDocument, { status: 201 })),
   http.post(`${baseUrl}/projects/project-1/documents/:documentId/process`, () => {
     processRequest();
     return HttpResponse.json({ ...activeDocument, state: "parsing" });
+  }),
+  http.delete(`${baseUrl}/projects/project-1/documents/:documentId`, () => {
+    deleteRequest();
+    return new HttpResponse(null, { status: 204 });
   }),
 );
 
@@ -39,7 +44,7 @@ function renderProjectPageWithApi(document: DocumentRecord): void {
 }
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
-afterEach(() => { cleanup(); server.resetHandlers(); processRequest.mockReset(); });
+afterEach(() => { cleanup(); server.resetHandlers(); processRequest.mockReset(); deleteRequest.mockReset(); });
 afterAll(() => server.close());
 
 describe("project upload flow", () => {
@@ -83,6 +88,13 @@ describe("project upload flow", () => {
     renderProjectPageWithApi(fixture("uploaded"));
     await user.click(await screen.findByRole("button", { name: "분석 시작" }));
     await waitFor(() => expect(processRequest).toHaveBeenCalledOnce());
+  });
+
+  it("removes an uploaded document", async () => {
+    const user = userEvent.setup();
+    renderProjectPageWithApi(fixture("review_required"));
+    await user.click(await screen.findByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(deleteRequest).toHaveBeenCalledOnce());
   });
 
   it("polls only while a document is active", () => {

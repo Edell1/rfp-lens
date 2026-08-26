@@ -214,6 +214,11 @@ export const api = {
       { method: "POST" },
     );
   },
+  deleteDocument(projectId: string, documentId: string): Promise<void> {
+    return request<void>(`/projects/${projectId}/documents/${documentId}`, {
+      method: "DELETE",
+    });
+  },
   listRequirements(projectId: string, filters: { category?: RequirementCategory; review_state?: ReviewState } = {}): Promise<RequirementRecord[]> {
     const params = new URLSearchParams();
     if (filters.category) params.set("category", filters.category);
