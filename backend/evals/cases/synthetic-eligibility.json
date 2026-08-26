@@ -1,0 +1,31 @@
+{
+  "case_id": "synthetic-eligibility",
+  "description": "지원 자격 문단에서 자격 요건을 근거와 함께 추출한다",
+  "blocks": [
+    {
+      "block_id": "hwpx-section0-p0",
+      "order": 0,
+      "kind": "heading",
+      "text": "1. 지원 자격",
+      "heading_path": [],
+      "locator": {"format": "hwpx", "section": "section0.xml", "paragraph": 0}
+    },
+    {
+      "block_id": "hwpx-section0-p1",
+      "order": 1,
+      "kind": "paragraph",
+      "text": "중소기업만 신청 가능",
+      "heading_path": ["1. 지원 자격"],
+      "locator": {"format": "hwpx", "section": "section0.xml", "paragraph": 1}
+    }
+  ],
+  "expected": [
+    {
+      "requirement": "중소기업만 신청 가능",
+      "category": "eligibility",
+      "mandatory": true,
+      "source_block_id": "hwpx-section0-p1",
+      "evidence_quote": "중소기업만 신청 가능"
+    }
+  ]
+}

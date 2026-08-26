@@ -1,0 +1,31 @@
+{
+  "case_id": "synthetic-budget-table",
+  "description": "예산 표 안의 정부출연금 한도를 표 근거와 함께 추출한다",
+  "blocks": [
+    {
+      "block_id": "hwpx-section0-p0",
+      "order": 0,
+      "kind": "heading",
+      "text": "2. 사업 개요",
+      "heading_path": [],
+      "locator": {"format": "hwpx", "section": "section0.xml", "paragraph": 0}
+    },
+    {
+      "block_id": "hwpx-section0-t0",
+      "order": 1,
+      "kind": "table",
+      "text": "평가항목\t내용\n정부출연금은 총 5억원 이내이다.\t총 사업비 기준",
+      "heading_path": ["2. 사업 개요"],
+      "locator": {"format": "hwpx", "section": "section0.xml", "table": 0}
+    }
+  ],
+  "expected": [
+    {
+      "requirement": "정부출연금은 5억원 이내이다",
+      "category": "budget",
+      "mandatory": true,
+      "source_block_id": "hwpx-section0-t0",
+      "evidence_quote": "정부출연금은 총 5억원 이내이다."
+    }
+  ]
+}
