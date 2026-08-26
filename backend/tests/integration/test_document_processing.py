@@ -43,6 +43,9 @@ def configure_task_runtime(
     )
     monkeypatch.setattr(tasks, "task_session_factory", factory)
     monkeypatch.setattr(tasks, "task_settings", task_settings)
+    queued: list[str] = []
+    monkeypatch.setattr(tasks.run_analysis, "delay", queued.append)
+    monkeypatch.setattr(tasks, "analysis_queue", queued, raising=False)
     yield
 
 
@@ -95,6 +98,8 @@ def uploaded_hwpx(
 def test_process_hwpx_persists_blocks(
     db_session: Session, uploaded_hwpx: Document
 ) -> None:
+    import app.documents.tasks as tasks
+
     result = process_document.run(str(uploaded_hwpx.id))
     db_session.expire_all()
     document = db_session.get(Document, uploaded_hwpx.id)
@@ -114,6 +119,7 @@ def test_process_hwpx_persists_blocks(
         "중소기업만 신청 가능",
         "평가항목",
     ]
+    assert tasks.analysis_queue == [str(uploaded_hwpx.id)]
 
 
 def test_scanned_pdf_moves_to_ocr_required(

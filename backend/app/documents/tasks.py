@@ -4,6 +4,7 @@ from uuid import UUID
 from celery.exceptions import MaxRetriesExceededError
 from sqlalchemy import delete, select
 
+from app.analysis.tasks import run_analysis
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.core.db import session_factory
@@ -97,4 +98,5 @@ def process_document(self, document_id: str) -> str:
             )
         document.state = DocumentState.ANALYZING
         db.commit()
+        run_analysis.delay(str(document.id))
         return document.state.value
