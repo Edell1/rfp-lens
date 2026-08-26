@@ -122,6 +122,9 @@ jobs:
       - name: Sync backend dependencies
         working-directory: backend
         run: uv sync --frozen
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
       - name: Install e2e dependencies
         working-directory: e2e
         run: npm ci

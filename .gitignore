@@ -8,5 +8,7 @@ dist/
 playwright-report/
 test-results/
 eval-results.json
+synthetic-rfp.hwpx
+demo-compliance.xlsx
 storage/
 .superpowers/
