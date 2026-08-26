@@ -59,6 +59,12 @@ export interface AnalysisSettingsPatch {
   local_model?: string;
 }
 
+export interface ConnectionTestResult {
+  ok: boolean;
+  detail: string;
+  models: string[];
+}
+
 export interface SourceLocator {
   format: "pdf" | "hwpx";
   page?: number;
@@ -266,6 +272,11 @@ export const api = {
   patchAnalysisSettings(payload: AnalysisSettingsPatch): Promise<AnalysisSettings> {
     return request<AnalysisSettings>("/settings/analysis", {
       method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+  },
+  testAnalysisConnection(payload: AnalysisSettingsPatch): Promise<ConnectionTestResult> {
+    return request<ConnectionTestResult>("/settings/analysis/test", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
     });
   },
 };

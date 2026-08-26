@@ -4,8 +4,17 @@ from fastapi import APIRouter, Depends
 
 from app.auth.dependencies import CurrentUser, DatabaseSession
 from app.core.config import Settings, get_settings
-from app.settings.schemas import AnalysisSettingsPatch, AnalysisSettingsResponse
-from app.settings.service import build_response, get_or_create_record, update_analysis_settings
+from app.settings.schemas import (
+    AnalysisSettingsPatch,
+    AnalysisSettingsResponse,
+    ConnectionTestResponse,
+)
+from app.settings.service import (
+    build_response,
+    get_or_create_record,
+    test_connection,
+    update_analysis_settings,
+)
 
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -31,3 +40,13 @@ def patch_analysis_settings(
 ) -> AnalysisSettingsResponse:
     record = update_analysis_settings(db, payload, settings)
     return build_response(record, settings)
+
+
+@router.post("/analysis/test", response_model=ConnectionTestResponse)
+def check_analysis_connection(
+    payload: AnalysisSettingsPatch,
+    db: DatabaseSession,
+    user: CurrentUser,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ConnectionTestResponse:
+    return test_connection(db, payload, settings)

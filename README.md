@@ -106,7 +106,7 @@ cd e2e && npm install && npx playwright install chromium && npm test   # 브라�
 | `ENVIRONMENT` | development | development/test/demo/production |
 | `AI_PROVIDER` | openai | openai / fake(test·demo 전용) / local(자체 호스팅) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | -, gpt-5-mini | 클라우드 추출 설정 |
-| `LOCAL_BASE_URL`, `LOCAL_MODEL` | http://localhost:11434/v1, - | Ollama·vLLM 등 OpenAI 호환 로컬 서버 |
+| `LOCAL_BASE_URL`, `LOCAL_MODEL` | http://localhost:11434/v1, - | Ollama·vLLM·LM Studio 등 OpenAI 호환 로컬 서버. Docker 실행 시 `host.docker.internal` 사용(예: LM Studio `http://host.docker.internal:1234/v1`) |
 | `MAX_UPLOAD_BYTES` | 26214400 | 25 MiB |
 | `CELERY_TASK_ALWAYS_EAGER` | false | E2E/테스트용 동기 실행 |
 

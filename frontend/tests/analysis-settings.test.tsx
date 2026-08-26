@@ -12,6 +12,7 @@ import { AnalysisSettingsPage } from "../src/features/settings/AnalysisSettingsP
 
 const baseUrl = "http://localhost:8000/api";
 const patchRequest = vi.fn();
+const testRequest = vi.fn();
 let currentSettings: AnalysisSettings;
 
 function settingsFixture(overrides: Partial<AnalysisSettings> = {}): AnalysisSettings {
@@ -33,6 +34,18 @@ const server = setupServer(
     patchRequest(payload);
     return HttpResponse.json({ ...currentSettings, ...payload, openai_api_key_set: true });
   }),
+  http.post(`${baseUrl}/settings/analysis/test`, async ({ request }) => {
+    const payload = (await request.json()) as { local_model?: string };
+    testRequest(payload);
+    if (payload.local_model === "missing-model") {
+      return HttpResponse.json({
+        ok: false,
+        detail: "모델을 찾을 수 없습니다: missing-model",
+        models: ["present-a"],
+      });
+    }
+    return HttpResponse.json({ ok: true, detail: "연결 성공 · 모델 1개", models: ["present-a"] });
+  }),
 );
 
 function renderSettingsPage(): void {
@@ -52,6 +65,7 @@ afterEach(() => {
   cleanup();
   server.resetHandlers();
   patchRequest.mockReset();
+  testRequest.mockReset();
 });
 afterAll(() => server.close());
 
@@ -117,5 +131,38 @@ describe("analysis settings page", () => {
         expect.not.objectContaining({ openai_api_key: expect.anything() })
       )
     );
+  });
+
+  it("shows a successful connection test for a reachable local model", async () => {
+    const user = userEvent.setup();
+    currentSettings = settingsFixture({
+      ai_provider: "local",
+      local_base_url: "http://host.docker.internal:1234/v1",
+      local_model: "qwen/qwen3.6-27b",
+    });
+    renderSettingsPage();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("분석 엔진")).toHaveValue("local")
+    );
+    await user.click(screen.getByRole("button", { name: "연결 테스트" }));
+
+    await waitFor(() => expect(testRequest).toHaveBeenCalledOnce());
+    expect(await screen.findByRole("status")).toHaveTextContent("연결 성공");
+  });
+
+  it("surfaces model errors from the connection test", async () => {
+    const user = userEvent.setup();
+    currentSettings = settingsFixture({ ai_provider: "local" });
+    renderSettingsPage();
+
+    const providerSelect = await screen.findByLabelText("분석 엔진");
+    await waitFor(() => expect(providerSelect).toHaveValue("local"));
+    await user.type(screen.getByLabelText("로컬 모델명"), "missing-model");
+    await user.click(screen.getByRole("button", { name: "연결 테스트" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("모델을 찾을 수 없습니다");
+    expect(alert).toHaveTextContent("present-a");
   });
 });

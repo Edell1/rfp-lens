@@ -130,3 +130,103 @@ def test_runtime_resolution_merges_stored_overrides(
 
     second = resolve_runtime_settings(db_session, base)
     assert second.local_model == "llama3.1:8b"
+
+
+def test_connection_test_accepts_fake_without_network(client: TestClient) -> None:
+    headers = register_and_login(client, "cfg-test-fake@example.com")
+
+    response = client.post(
+        "/api/settings/analysis/test",
+        headers=headers,
+        json={"ai_provider": "fake"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+
+
+def test_connection_test_reports_unreachable_local_server(
+    client: TestClient,
+) -> None:
+    headers = register_and_login(client, "cfg-test-local@example.com")
+
+    response = client.post(
+        "/api/settings/analysis/test",
+        headers=headers,
+        json={
+            "ai_provider": "local",
+            "local_base_url": "http://127.0.0.1:9/v1",
+            "local_model": "m",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is False
+    assert body["detail"].startswith("연결 실패")
+
+
+def test_connection_test_detects_missing_model(db_session, tmp_path) -> None:
+    from types import SimpleNamespace
+
+    from app.settings.schemas import AnalysisSettingsPatch
+    from app.settings.service import test_connection
+
+    base = Settings(
+        environment="test",
+        jwt_secret="connection-stub-secret-enough",
+        storage_root=tmp_path,
+    )
+    payload = AnalysisSettingsPatch(
+        ai_provider="local",
+        local_base_url="http://stub:1234/v1",
+        local_model="missing-model",
+    )
+    captured = {}
+
+    def stub_factory(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            models=SimpleNamespace(
+                list=lambda: SimpleNamespace(
+                    data=[SimpleNamespace(id="present-a"), SimpleNamespace(id="present-b")]
+                )
+            )
+        )
+
+    missing = test_connection(db_session, payload, base, client_factory=stub_factory)
+
+    assert missing.ok is False
+    assert "missing-model" in missing.detail
+    assert missing.models == ["present-a", "present-b"]
+    assert captured["base_url"] == "http://stub:1234/v1"
+
+    found = test_connection(
+        db_session,
+        AnalysisSettingsPatch(
+            ai_provider="local",
+            local_base_url="http://stub:1234/v1",
+            local_model="present-a",
+        ),
+        base,
+        client_factory=stub_factory,
+    )
+    assert found.ok is True
+    assert found.detail.startswith("연결 성공")
+
+
+def test_connection_test_requires_openai_key_when_none_stored(
+    client: TestClient,
+) -> None:
+    headers = register_and_login(client, "cfg-test-openai@example.com")
+
+    response = client.post(
+        "/api/settings/analysis/test",
+        headers=headers,
+        json={"ai_provider": "openai"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ok"] is False
+    assert "API 키" in body["detail"]

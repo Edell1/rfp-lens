@@ -19,6 +19,7 @@ export function AnalysisSettingsPage(): React.ReactElement {
   const [localBaseUrl, setLocalBaseUrl] = useState("");
   const [localModel, setLocalModel] = useState("");
   const [saved, setSaved] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; detail: string; models: string[] } | null>(null);
 
   useEffect(() => {
     if (!settings.data) return;
@@ -50,6 +51,20 @@ export function AnalysisSettingsPage(): React.ReactElement {
     save.mutate();
   }
 
+  async function runTest(): Promise<void> {
+    setSaved(false);
+    setTestResult(null);
+    setTestResult(
+      await api.testAnalysisConnection({
+        ai_provider: provider,
+        openai_model: openaiModel.trim() || undefined,
+        openai_api_key: openaiApiKey.trim() || undefined,
+        local_base_url: localBaseUrl.trim() || undefined,
+        local_model: localModel.trim() || undefined,
+      }),
+    );
+  }
+
   return <main className="app-shell"><header className="topbar"><Link to="/projects" className="brand">RFP <em>Lens</em></Link><Link to="/projects" className="text-button">프로젝트 목록</Link></header>
     <section className="page-heading compact"><p className="eyebrow">ANALYSIS SETTINGS</p><h1>분석 엔진 설정</h1><p>공고문 요구사항을 추출할 AI 공급자를 선택합니다. 저장 즉시 다음 분석부터 적용됩니다.</p></section>
     {settings.isLoading && <p>설정을 불러오는 중…</p>}
@@ -61,6 +76,7 @@ export function AnalysisSettingsPage(): React.ReactElement {
       </select></label>
       {provider === "local" && <>
         <label htmlFor="local-base-url">로컬 서버 주소<input id="local-base-url" value={localBaseUrl} onChange={(event) => setLocalBaseUrl(event.target.value)} placeholder="http://host.docker.internal:11434/v1" /></label>
+        <p className="muted">이 앱이 Docker에서 실행 중이면 <code>host.docker.internal</code>, 직접 실행(uvicorn)이면 <code>localhost</code>를 사용하세요. OpenAI 호환 경로인 <code>/v1</code>까지 입력해야 합니다.</p>
         <label htmlFor="local-model">로컬 모델명<input id="local-model" value={localModel} onChange={(event) => setLocalModel(event.target.value)} placeholder="qwen2.5:7b" required /></label>
       </>}
       {provider === "openai" && <>
@@ -70,7 +86,13 @@ export function AnalysisSettingsPage(): React.ReactElement {
       {provider === "fake" && <p className="muted">합성 문구만 인식하는 오프라인 데모 모드입니다. demo 환경에서만 사용할 수 있습니다.</p>}
       {save.isError && <p className="form-error" role="alert">{save.error instanceof Error ? save.error.message : "저장하지 못했습니다."}</p>}
       {saved && save.isSuccess && <p role="status">설정이 저장되었습니다.</p>}
-      <button type="submit" disabled={save.isPending}>{save.isPending ? "저장 중…" : "저장"}</button>
+      {testResult && (testResult.ok
+        ? <div role="status"><p>연결 성공 · {testResult.detail}</p>{testResult.models.length > 0 && <p className="muted">{testResult.models.slice(0, 10).join(", ")}</p>}</div>
+        : <div className="form-error" role="alert"><p>연결 실패 · {testResult.detail}</p>{testResult.models.length > 0 && <p className="muted">사용 가능한 모델: {testResult.models.slice(0, 10).join(", ")}</p>}</div>)}
+      <div className="inline-form">
+        <button type="button" onClick={() => void runTest()} disabled={provider === "fake"}>연결 테스트</button>
+        <button type="submit" disabled={save.isPending}>{save.isPending ? "저장 중…" : "저장"}</button>
+      </div>
     </form></section>}
   </main>;
 }

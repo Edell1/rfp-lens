@@ -1,8 +1,10 @@
 from fastapi import HTTPException
+from openai import OpenAI
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.models import AnalysisSettingsRecord
+from app.settings.schemas import ConnectionTestResponse
 
 
 def get_or_create_record(db: Session) -> AnalysisSettingsRecord:
@@ -94,3 +96,114 @@ def build_response(record: AnalysisSettingsRecord, base: Settings):
         local_model=record.local_model or "",
         updated_at=record.updated_at,
     )
+
+
+def _effective_values(
+    db: Session, payload, base: Settings
+) -> dict[str, str | None]:
+    record = db.get(AnalysisSettingsRecord, 1)
+    stored = (
+        {}
+        if record is None
+        else {
+            "ai_provider": record.ai_provider,
+            "openai_api_key": record.openai_api_key,
+            "openai_model": record.openai_model,
+            "local_base_url": record.local_base_url,
+            "local_model": record.local_model,
+        }
+    )
+
+    def pick(field: str) -> str | None:
+        candidate = getattr(payload, field, None)
+        if candidate is not None and str(candidate).strip():
+            return str(candidate).strip()
+        if stored.get(field):
+            return stored[field]
+        return getattr(base, field, None)
+
+    provider = pick("ai_provider") or base.ai_provider
+    openai_key = pick("openai_api_key")
+    if not openai_key:
+        # The stored key is write-only from the UI; fall back to boot settings.
+        openai_key = base.openai_api_key or None
+    return {
+        "ai_provider": provider,
+        "openai_api_key": openai_key,
+        "openai_model": pick("openai_model"),
+        "local_base_url": pick("local_base_url"),
+        "local_model": pick("local_model"),
+    }
+
+
+def test_connection(
+    db: Session,
+    payload,
+    base: Settings,
+    *,
+    client_factory=None,
+) -> ConnectionTestResponse:
+    values = _effective_values(db, payload, base)
+    provider = values["ai_provider"]
+
+    if provider == "fake":
+        return ConnectionTestResponse(
+            ok=True,
+            detail="합성 테스트 모드는 네트워크 없이 동작합니다.",
+        )
+
+    def default_factory(**kwargs):
+        kwargs.setdefault("timeout", 10.0)
+        return OpenAI(**kwargs)
+
+    factory = client_factory or default_factory
+
+    if provider == "local":
+        base_url = values["local_base_url"]
+        model = values["local_model"] or ""
+        if not base_url:
+            return ConnectionTestResponse(ok=False, detail="로컬 서버 주소가 필요합니다.")
+        try:
+            models = [
+                item.id for item in factory(api_key="local", base_url=base_url).models.list().data
+            ]
+        except Exception as error:  # noqa: BLE001 - surfaced to the UI verbatim
+            return ConnectionTestResponse(
+                ok=False,
+                detail=f"연결 실패: {_error_summary(error)}",
+            )
+        if model and model not in models:
+            return ConnectionTestResponse(
+                ok=False,
+                detail=f"모델을 찾을 수 없습니다: {model}",
+                models=models[:20],
+            )
+        return ConnectionTestResponse(
+            ok=True,
+            detail=f"연결 성공 · 모델 {len(models)}개",
+            models=models[:20],
+        )
+
+    api_key = values["openai_api_key"]
+    if not api_key:
+        return ConnectionTestResponse(ok=False, detail="OpenAI API 키가 필요합니다.")
+    try:
+        models = [
+            item.id
+            for item in factory(api_key=api_key).models.list().data
+        ]
+    except Exception as error:  # noqa: BLE001 - surfaced to the UI verbatim
+        return ConnectionTestResponse(
+            ok=False,
+            detail=f"연결 실패: {_error_summary(error)}",
+        )
+    return ConnectionTestResponse(
+        ok=True,
+        detail=f"연결 성공 · 모델 {len(models)}개",
+        models=models[:20],
+    )
+
+
+def _error_summary(error: Exception, limit: int = 200) -> str:
+    message = str(error).strip().replace("\n", " ")
+    return message[:limit] if message else error.__class__.__name__

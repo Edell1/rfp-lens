@@ -19,3 +19,9 @@ class AnalysisSettingsPatch(BaseModel):
     openai_model: str | None = Field(default=None, min_length=1, max_length=120)
     local_base_url: str | None = Field(default=None, min_length=1, max_length=500)
     local_model: str | None = Field(default=None, min_length=1, max_length=120)
+
+
+class ConnectionTestResponse(BaseModel):
+    ok: bool
+    detail: str
+    models: list[str] = Field(default_factory=list)
