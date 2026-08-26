@@ -10,8 +10,10 @@ from app.documents.service import (
     delete_owned_document,
     get_owned_document,
     list_owned_documents,
+    mark_document_for_processing,
     save_uploaded_document,
 )
+from app.documents.tasks import process_document
 from app.projects.service import get_owned_project
 
 
@@ -49,6 +51,23 @@ def get_document(
     user: CurrentUser,
 ) -> DocumentResponse:
     document = get_owned_document(db, project_id, document_id, user.id)
+    return DocumentResponse.model_validate(document)
+
+
+@router.post(
+    "/{document_id}/process",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def start_processing(
+    project_id: UUID,
+    document_id: UUID,
+    db: DatabaseSession,
+    user: CurrentUser,
+) -> DocumentResponse:
+    document = get_owned_document(db, project_id, document_id, user.id)
+    document = mark_document_for_processing(db, document)
+    process_document.delay(str(document.id))
     return DocumentResponse.model_validate(document)
 
 

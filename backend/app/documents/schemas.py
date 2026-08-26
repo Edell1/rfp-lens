@@ -17,5 +17,6 @@ class DocumentResponse(BaseModel):
     state: DocumentState
     error_code: str | None
     error_message: str | None
+    block_count: int
     created_at: datetime
     updated_at: datetime
