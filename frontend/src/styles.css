@@ -51,4 +51,27 @@ button:disabled { cursor: wait; opacity: .55; }
 .auth-switch { position: fixed; right: 0; bottom: 25px; left: 0; text-align: center; }
 .auth-switch a { color: #0d6c5a; font-weight: 750; }
 .route-loading { padding: 40px; text-align: center; }
-@media (max-width: 640px) { .app-shell { padding: 16px 16px 40px; } .page-heading { margin-top: 40px; } .inline-form, .document-row { align-items: stretch; flex-direction: column; } .document-row { gap: 10px; } .status-card { max-width: none; } .auth-card { padding: 28px; } }
+.filter-label { display: inline-flex; align-items: center; gap: 9px; margin: 0 0 18px; color: #415149; font-size: .9rem; font-weight: 750; }
+.filter-label select, .compliance-table select { min-height: 36px; padding: 6px 8px; border: 1px solid #aeb9b3; border-radius: 7px; background: #fff; }
+.review-workspace { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); gap: 20px; align-items: start; }
+.requirement-list { display: grid; gap: 10px; }
+.requirement-card { padding: 19px; border: 1px solid #d9ded7; border-radius: 12px; background: #fff; cursor: pointer; }
+.requirement-card.selected { border-color: #167c68; box-shadow: 0 0 0 3px #d8f1e9; }
+.requirement-card h3 { font-size: 1rem; line-height: 1.45; }
+.requirement-card textarea { min-height: 90px; width: 100%; padding: 10px; border: 1px solid #aeb9b3; border-radius: 8px; resize: vertical; }
+.requirement-meta, .requirement-footer, .card-actions, .evidence-meta { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.requirement-meta { margin-bottom: 11px; color: #617078; font-size: .77rem; }
+.requirement-meta span { padding: 3px 6px; border-radius: 5px; background: #eff2ee; }
+.requirement-footer { justify-content: space-between; margin-top: 14px; }
+.review-state { font-size: .82rem; font-weight: 750; color: #617078; }
+.review-state.confirmed, .review-state.edited { color: #0d6c5a; }.review-state.rejected { color: #a94136; }
+.evidence-panel { position: sticky; top: 18px; padding: 25px; border: 1px solid #d9ded7; border-radius: 14px; background: #173a35; color: #f3f7f3; }
+.evidence-panel .eyebrow { color: #8cd7c2; }.evidence-panel h2 { font-size: 1.3rem; }
+.evidence-card { padding: 16px 0; border-top: 1px solid #ffffff2c; }.evidence-card:first-of-type { border-top: 0; }
+.evidence-meta { justify-content: space-between; color: #c6d5ce; font-size: .76rem; }.verified { color: #8cd7c2; }.unverified { color: #f6cf78; }
+blockquote { margin: 13px 0 0; padding-left: 12px; border-left: 2px solid #8cd7c2; font-size: .96rem; line-height: 1.6; }
+.modal-backdrop { position: fixed; z-index: 10; inset: 0; display: grid; place-items: center; padding: 20px; background: #14202a80; cursor: default; }
+.confirmation-dialog { width: min(100%, 420px); padding: 25px; border-radius: 14px; background: #fff; box-shadow: 0 15px 50px #0004; }.confirmation-dialog div { display: flex; justify-content: end; gap: 8px; }
+.conflict-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 17px; padding: 12px 14px; border-radius: 9px; background: #fff4da; color: #6e5100; }
+.table-scroll { overflow-x: auto; border: 1px solid #d9ded7; border-radius: 14px; background: #fff; }.compliance-table { width: 100%; min-width: 1050px; border-collapse: collapse; }.compliance-table th, .compliance-table td { padding: 13px; border-bottom: 1px solid #e3e7e2; text-align: left; vertical-align: top; }.compliance-table th { background: #eff4f0; font-size: .78rem; }.compliance-table td { font-size: .86rem; }.compliance-table small { display: block; margin-top: 7px; color: #617078; }.compliance-table label { display: grid; gap: 5px; min-width: 125px; font-size: .72rem; font-weight: 700; }.compliance-table input, .compliance-table textarea { min-width: 150px; padding: 7px; border: 1px solid #aeb9b3; border-radius: 6px; }.compliance-table textarea { min-height: 68px; resize: vertical; }
+@media (max-width: 760px) { .app-shell { padding: 16px 16px 40px; } .page-heading { margin-top: 40px; } .inline-form, .document-row { align-items: stretch; flex-direction: column; } .document-row { gap: 10px; } .status-card { max-width: none; } .auth-card { padding: 28px; } .review-workspace { grid-template-columns: 1fr; }.evidence-panel { position: static; } }

@@ -34,6 +34,76 @@ export interface DocumentRecord {
   updated_at: string;
 }
 
+export type RequirementCategory =
+  | "eligibility" | "exclusion" | "schedule" | "budget" | "submission"
+  | "technical_goal" | "quantitative_target" | "evaluation" | "other";
+export type ReviewState = "pending" | "confirmed" | "rejected" | "edited";
+export type Importance = "required" | "high" | "medium" | "low";
+export type ComplianceStatus = "not_started" | "in_progress" | "complete" | "not_applicable";
+
+export interface SourceLocator {
+  format: "pdf" | "hwpx";
+  page?: number;
+  section?: string;
+  paragraph?: number;
+  table?: number;
+  row?: number;
+  column?: number;
+}
+
+export interface RequirementEvidence {
+  id: string;
+  block_id: string;
+  quote: string;
+  verified: boolean;
+  locator: SourceLocator;
+}
+
+export interface RequirementRecord {
+  id: string;
+  project_id: string;
+  document_id: string;
+  text: string;
+  category: RequirementCategory;
+  mandatory: boolean;
+  confidence: string;
+  review_state: ReviewState;
+  evidence: RequirementEvidence[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RequirementPatch {
+  updated_at: string;
+  text?: string;
+  review_state?: ReviewState;
+  confirm_unverified?: boolean;
+}
+
+export interface ComplianceRecord {
+  id: string;
+  requirement_id: string;
+  requirement_text: string;
+  category: RequirementCategory;
+  mandatory: boolean;
+  evidence_quote: string;
+  source_location: string;
+  importance: Importance;
+  proposal_section: string;
+  owner_note: string;
+  status: ComplianceStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompliancePatch {
+  updated_at: string;
+  importance?: Importance;
+  proposal_section?: string;
+  owner_note?: string;
+  status?: ComplianceStatus;
+}
+
 interface TokenResponse {
   access_token: string;
   token_type: string;
@@ -86,6 +156,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function download(path: string): Promise<Blob> {
+  const headers = new Headers();
+  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  const response = await fetch(`${apiBase}${path}`, { headers });
+  if (response.status === 401) unauthorizedHandler?.();
+  if (!response.ok) throw new ApiError(response.status);
+  return response.blob();
+}
+
 export const api = {
   register(email: string, password: string): Promise<User> {
     return request<User>("/auth/register", {
@@ -134,5 +213,28 @@ export const api = {
       `/projects/${projectId}/documents/${documentId}/process`,
       { method: "POST" },
     );
+  },
+  listRequirements(projectId: string, filters: { category?: RequirementCategory; review_state?: ReviewState } = {}): Promise<RequirementRecord[]> {
+    const params = new URLSearchParams();
+    if (filters.category) params.set("category", filters.category);
+    if (filters.review_state) params.set("review_state", filters.review_state);
+    const query = params.size ? `?${params.toString()}` : "";
+    return request<RequirementRecord[]>(`/projects/${projectId}/requirements${query}`);
+  },
+  patchRequirement(projectId: string, requirementId: string, payload: RequirementPatch): Promise<RequirementRecord> {
+    return request<RequirementRecord>(`/projects/${projectId}/requirements/${requirementId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+  },
+  listCompliance(projectId: string): Promise<ComplianceRecord[]> {
+    return request<ComplianceRecord[]>(`/projects/${projectId}/compliance`);
+  },
+  patchCompliance(projectId: string, itemId: string, payload: CompliancePatch): Promise<ComplianceRecord> {
+    return request<ComplianceRecord>(`/projects/${projectId}/compliance/${itemId}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+  },
+  downloadCompliance(projectId: string): Promise<Blob> {
+    return download(`/projects/${projectId}/compliance.xlsx`);
   },
 };
