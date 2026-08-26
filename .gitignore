@@ -10,5 +10,6 @@ test-results/
 eval-results.json
 synthetic-rfp.hwpx
 demo-compliance.xlsx
+rfp_sample.pdf
 storage/
 .superpowers/
