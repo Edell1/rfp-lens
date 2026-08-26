@@ -47,6 +47,20 @@ docker compose up --build -d
 
 demo 환경의 fake provider는 커밋된 합성 문구("중소기업만 신청 가능", "정부출연금은 총 5억원 이내이다.")만 인식합니다. [docs/demo-script.md](docs/demo-script.md)의 합성 HWPX를 올려 보세요.
 
+**로컬 모델로 분석**(Ollama 예시):
+
+```bash
+ollama pull qwen2.5:7b && ollama serve
+# .env 설정:
+#   RFP_LENS_AI_PROVIDER=local
+#   RFP_LENS_LOCAL_BASE_URL=http://host.docker.internal:11434/v1   (컨테이너 → 호스트)
+#   RFP_LENS_LOCAL_MODEL=qwen2.5:7b
+docker compose up -d
+cd backend && uv run python -m evals.run --provider local --cases-dir evals/cases   # 근거 검증률 측정
+```
+
+소형 로컬 모델은 원문 verbatim 인용 실패가 잦으므로 `evidence_verification_rate`를 먼저 확인하세요.
+
 ## 로컬 개발
 
 요구 사항: Python 3.12+, Node 22+, Docker(PostgreSQL 16/Redis 7).
@@ -90,8 +104,9 @@ cd e2e && npm install && npx playwright install chromium && npm test   # 브라�
 | `STORAGE_ROOT` | `storage` | 업로드 파일 저장 루트 |
 | `JWT_SECRET` | `change-me` | test 외 환경에서 기본값 사용 시 기동 거부 |
 | `ENVIRONMENT` | development | development/test/demo/production |
-| `AI_PROVIDER` | openai | openai 또는 fake(fake는 test/demo만 허용) |
+| `AI_PROVIDER` | openai | openai / fake(test·demo 전용) / local(자체 호스팅) |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | -, gpt-5-mini | 클라우드 추출 설정 |
+| `LOCAL_BASE_URL`, `LOCAL_MODEL` | http://localhost:11434/v1, - | Ollama·vLLM 등 OpenAI 호환 로컬 서버 |
 | `MAX_UPLOAD_BYTES` | 26214400 | 25 MiB |
 | `CELERY_TASK_ALWAYS_EAGER` | false | E2E/테스트용 동기 실행 |
 
