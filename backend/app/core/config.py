@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-5-mini"
     ai_provider: Literal["openai", "fake"] = "openai"
+    frontend_origins: list[str] = ["http://localhost:5173"]
     max_upload_bytes: int = 26_214_400
     environment: Literal["development", "test", "demo", "production"] = "development"
 
