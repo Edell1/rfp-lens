@@ -82,8 +82,15 @@ def test_chunking_is_deterministic_and_does_not_split_blocks() -> None:
         make_block("b3", "다" * 8, order=2),
     ]
 
-    first = chunk_blocks(blocks, target_chars=16, hard_max_chars=20)
-    second = chunk_blocks(list(reversed(blocks)), target_chars=16, hard_max_chars=20)
+    first = chunk_blocks(
+        blocks, target_chars=16, hard_max_chars=20, overlap_blocks=0
+    )
+    second = chunk_blocks(
+        list(reversed(blocks)),
+        target_chars=16,
+        hard_max_chars=20,
+        overlap_blocks=0,
+    )
 
     assert [[block.block_id for block in chunk.blocks] for chunk in first] == [
         ["b1", "b2"],
@@ -91,6 +98,54 @@ def test_chunking_is_deterministic_and_does_not_split_blocks() -> None:
     ]
     assert [chunk.model_dump() for chunk in first] == [
         chunk.model_dump() for chunk in second
+    ]
+
+
+def test_chunking_repeats_complete_boundary_blocks_for_context() -> None:
+    blocks = [
+        make_block("b1", "가" * 4, order=0),
+        make_block("b2", "나" * 4, order=1),
+        make_block("b3", "다" * 4, order=2),
+        make_block("b4", "라" * 4, order=3),
+    ]
+
+    chunks = chunk_blocks(
+        blocks,
+        target_chars=8,
+        hard_max_chars=20,
+        overlap_blocks=1,
+    )
+
+    assert [[block.block_id for block in chunk.blocks] for chunk in chunks] == [
+        ["b1", "b2"],
+        ["b2", "b3", "b4"],
+    ]
+
+
+def test_analysis_service_splits_long_inputs_into_small_overlapping_requests() -> None:
+    class RecordingProvider:
+        def __init__(self) -> None:
+            self.chunk_block_ids: list[list[str]] = []
+
+        def extract(self, chunks):
+            self.chunk_block_ids.append(
+                [block.block_id for block in chunks[0].blocks]
+            )
+            return [], ExtractionUsage(
+                provider="fake", model="fixture", prompt_version="requirements-v1"
+            )
+
+    provider = RecordingProvider()
+    blocks = [
+        make_block(f"b{index}", str(index) * 1_000, order=index)
+        for index in range(1, 6)
+    ]
+
+    AnalysisService(provider).analyze(blocks)
+
+    assert provider.chunk_block_ids == [
+        ["b1", "b2", "b3", "b4"],
+        ["b3", "b4", "b5"],
     ]
 
 
@@ -220,6 +275,25 @@ def test_local_factory_uses_configured_endpoint_and_model() -> None:
     assert isinstance(provider, LocalRequirementProvider)
     assert provider.model == "qwen2.5:7b"
     assert provider.base_url == "http://localhost:11434/v1"
+
+
+def test_local_provider_allows_slow_inference_without_sdk_retries(monkeypatch) -> None:
+    captured = {}
+
+    def openai_factory(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace()
+
+    monkeypatch.setattr("app.analysis.local_provider.OpenAI", openai_factory)
+
+    LocalRequirementProvider(base_url="http://localhost:1234/v1", model="qwen")
+
+    assert captured == {
+        "api_key": "local",
+        "base_url": "http://localhost:1234/v1",
+        "timeout": 300.0,
+        "max_retries": 0,
+    }
 
 
 def test_local_adapter_sends_schema_and_parses_batch() -> None:

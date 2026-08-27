@@ -5,10 +5,15 @@ from app.parsing.types import DocumentBlock
 def chunk_blocks(
     blocks: list[DocumentBlock],
     *,
-    target_chars: int = 12_000,
+    target_chars: int = 4_000,
     hard_max_chars: int = 16_000,
+    overlap_blocks: int = 2,
 ) -> list[AnalysisChunk]:
-    if target_chars <= 0 or hard_max_chars < target_chars:
+    if (
+        target_chars <= 0
+        or hard_max_chars < target_chars
+        or overlap_blocks < 0
+    ):
         raise ValueError("Invalid chunk size limits")
 
     chunks: list[list[DocumentBlock]] = []
@@ -31,7 +36,18 @@ def chunk_blocks(
     if current:
         chunks.append(current)
 
+    overlapped_chunks: list[list[DocumentBlock]] = []
+    for index, chunk in enumerate(chunks):
+        context = (
+            chunks[index - 1][-overlap_blocks:]
+            if index and overlap_blocks
+            else []
+        )
+        while context and sum(len(block.text) for block in context + chunk) > hard_max_chars:
+            context = context[1:]
+        overlapped_chunks.append(context + chunk)
+
     return [
         AnalysisChunk(chunk_id=f"chunk-{index:04d}", blocks=chunk)
-        for index, chunk in enumerate(chunks, start=1)
+        for index, chunk in enumerate(overlapped_chunks, start=1)
     ]

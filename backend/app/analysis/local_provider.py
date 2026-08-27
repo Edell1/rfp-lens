@@ -56,7 +56,12 @@ class LocalRequirementProvider:
     def __init__(self, *, base_url: str, model: str, client: Any | None = None) -> None:
         self.base_url = base_url
         self.model = model
-        self.client = client or OpenAI(api_key="local", base_url=base_url, timeout=60.0)
+        self.client = client or OpenAI(
+            api_key="local",
+            base_url=base_url,
+            timeout=300.0,
+            max_retries=0,
+        )
 
     def extract(
         self, chunks: list[AnalysisChunk]

@@ -128,7 +128,8 @@ class HwpxParser:
             href = element.attrib.get("href")
             if not item_id or not href or item_id in item_paths:
                 raise HwpxParseError("invalid_hwpx", "invalid_manifest_item")
-            resolved = resolve_archive_reference(CONTENT_MANIFEST, href)
+            relative_path = resolve_archive_reference(CONTENT_MANIFEST, href)
+            resolved = href if href in names else relative_path
             if resolved in resolved_paths:
                 raise HwpxParseError("invalid_hwpx", "duplicate_spine_path")
             item_paths[item_id] = resolved

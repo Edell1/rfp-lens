@@ -27,19 +27,22 @@ class AnalysisService:
         provider: RequirementProvider,
         *,
         max_attempts: int = 3,
-        target_chars: int = 12_000,
+        target_chars: int = 4_000,
         hard_max_chars: int = 16_000,
+        overlap_blocks: int = 2,
     ) -> None:
         self.provider = provider
         self.max_attempts = max_attempts
         self.target_chars = target_chars
         self.hard_max_chars = hard_max_chars
+        self.overlap_blocks = overlap_blocks
 
     def analyze(self, blocks: list[DocumentBlock]) -> AnalysisOutcome:
         chunks = chunk_blocks(
             blocks,
             target_chars=self.target_chars,
             hard_max_chars=self.hard_max_chars,
+            overlap_blocks=self.overlap_blocks,
         )
         validated = []
         failed_chunks = 0
