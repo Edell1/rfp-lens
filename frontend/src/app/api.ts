@@ -41,6 +41,8 @@ export type ReviewState = "pending" | "confirmed" | "rejected" | "edited";
 export type Importance = "required" | "high" | "medium" | "low";
 export type ComplianceStatus = "not_started" | "in_progress" | "complete" | "not_applicable";
 export type AiProvider = "openai" | "fake" | "local";
+export type SummaryScope = "all" | "reviewed";
+export type SummaryState = "pending" | "running" | "succeeded" | "failed";
 
 export interface AnalysisSettings {
   ai_provider: AiProvider;
@@ -126,6 +128,42 @@ export interface CompliancePatch {
   proposal_section?: string;
   owner_note?: string;
   status?: ComplianceStatus;
+}
+
+export interface OverviewStats {
+  total: number;
+  confirmed_or_edited: number;
+  pending: number;
+  rejected: number;
+  unverified_evidence: number;
+}
+
+export interface SummaryHighlight {
+  category: RequirementCategory;
+  headline: string;
+  detail: string;
+  requirement_ids: string[];
+}
+
+export interface OverviewFallbackRequirement {
+  id: string;
+  text: string;
+  category: RequirementCategory;
+  mandatory: boolean;
+  review_state: ReviewState;
+  evidence: Array<{ quote: string; verified: boolean; locator: SourceLocator }>;
+}
+
+export interface AnalysisOverview {
+  empty: boolean;
+  effective_scope: SummaryScope;
+  summary_state: SummaryState;
+  stale: boolean;
+  stats: OverviewStats;
+  category_counts: Record<RequirementCategory, number>;
+  highlights: SummaryHighlight[];
+  fallback_requirements: OverviewFallbackRequirement[];
+  updated_at: string | null;
 }
 
 interface TokenResponse {
@@ -249,6 +287,9 @@ export const api = {
     if (filters.review_state) params.set("review_state", filters.review_state);
     const query = params.size ? `?${params.toString()}` : "";
     return request<RequirementRecord[]>(`/projects/${projectId}/requirements${query}`);
+  },
+  getAnalysisOverview(projectId: string, scope: "auto" | SummaryScope = "auto"): Promise<AnalysisOverview> {
+    return request<AnalysisOverview>(`/projects/${projectId}/analysis-overview?scope=${scope}`);
   },
   patchRequirement(projectId: string, requirementId: string, payload: RequirementPatch): Promise<RequirementRecord> {
     return request<RequirementRecord>(`/projects/${projectId}/requirements/${requirementId}`, {

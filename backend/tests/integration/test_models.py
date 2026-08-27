@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     AnalysisJob,
+    AnalysisSummary,
     ComplianceItem,
     Document,
     DocumentState,
@@ -13,6 +14,8 @@ from app.db.models import (
     Project,
     Requirement,
     RequirementCategory,
+    SummaryScope,
+    SummaryState,
     User,
 )
 
@@ -87,6 +90,34 @@ def test_compliance_item_requirement_is_unique(
     db_session.add(first)
     db_session.commit()
     db_session.add(ComplianceItem(project_id=project.id, requirement_id=requirement.id))
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_analysis_summary_scope_is_unique_per_project(
+    db_session: Session, user_factory: Callable[[str], User]
+) -> None:
+    user = user_factory("summary-owner@example.com")
+    project = Project(owner_id=user.id, name="요약 캐시 테스트")
+    db_session.add_all(
+        [
+            AnalysisSummary(
+                project=project,
+                scope=SummaryScope.ALL,
+                state=SummaryState.PENDING,
+                prompt_version="analysis-summary-v1",
+                source_fingerprint="a" * 64,
+            ),
+            AnalysisSummary(
+                project=project,
+                scope=SummaryScope.ALL,
+                state=SummaryState.PENDING,
+                prompt_version="analysis-summary-v1",
+                source_fingerprint="b" * 64,
+            ),
+        ]
+    )
 
     with pytest.raises(IntegrityError):
         db_session.commit()

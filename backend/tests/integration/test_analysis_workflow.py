@@ -10,12 +10,14 @@ from app.core.celery_app import celery_app
 from app.core.config import Settings
 from app.db.models import (
     AnalysisJob,
+    AnalysisSummary,
     Document,
     DocumentState,
     Evidence,
     JobState,
     Project,
     Requirement,
+    SummaryState,
     User,
 )
 from app.documents.storage import LocalFileStore, build_storage_key
@@ -41,6 +43,7 @@ def configure_eager_workflow(
 ) -> Generator[None, None, None]:
     import app.analysis.tasks as analysis_tasks
     import app.documents.tasks as document_tasks
+    import app.overview.tasks as overview_tasks
 
     factory = sessionmaker(
         bind=db_session.connection(), autoflush=False, expire_on_commit=False
@@ -49,6 +52,8 @@ def configure_eager_workflow(
     monkeypatch.setattr(document_tasks, "task_settings", analysis_settings)
     monkeypatch.setattr(analysis_tasks, "task_session_factory", factory)
     monkeypatch.setattr(analysis_tasks, "task_settings", analysis_settings)
+    monkeypatch.setattr(overview_tasks, "task_session_factory", factory)
+    monkeypatch.setattr(overview_tasks, "task_settings", analysis_settings)
 
     previous_eager = celery_app.conf.task_always_eager
     previous_propagates = celery_app.conf.task_eager_propagates
@@ -102,6 +107,9 @@ def test_parsing_enqueues_analysis_and_persists_verified_requirement(
         if requirement is not None
         else select(Evidence).where(False)
     )
+    summary = db_session.scalar(
+        select(AnalysisSummary).where(AnalysisSummary.project_id == project.id)
+    )
 
     assert parsing_result == DocumentState.ANALYZING.value
     assert refreshed is not None and refreshed.state == DocumentState.REVIEW_REQUIRED
@@ -111,3 +119,6 @@ def test_parsing_enqueues_analysis_and_persists_verified_requirement(
     assert requirement.text == "중소기업만 신청 가능"
     assert evidence is not None and evidence.verified is True
     assert evidence.quote == "중소기업만 신청 가능"
+    assert summary is not None and summary.state == SummaryState.SUCCEEDED
+    assert summary.provider == "fake"
+    assert summary.highlights[0]["requirement_ids"] == [str(requirement.id)]

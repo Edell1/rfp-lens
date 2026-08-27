@@ -16,11 +16,13 @@ LocalFileStore (storage_root, 웹 루트 외부)
                                                      │ 1. 파싱 → DocumentBlockRecord
                                                      │ 2. 청킹 → provider.extract()
                                                      │ 3. 검증 → Evidence(verified)
+                                                     │ 4. 요약 → AnalysisSummary(highlights)
                                                      ▼
                                               AnalysisJob / Requirement / Evidence
 ```
 
 - **analysis 도메인은 원본 파일을 읽지 않습니다.** worker가 파싱해 만든 블록만 사용합니다.
+- **overview 도메인은 검증된 요구사항과 근거만 요약 공급자에 전달합니다.** 통계는 DB에서 결정론적으로 계산하고 AI가 반환한 요구사항 ID/분류를 서버가 재검증합니다.
 - **compliance 도메인은 확정/수정된 요구사항만 소비합니다.**
 
 ## 공통 블록 모델
@@ -67,9 +69,10 @@ class RequirementProvider(Protocol):
     def extract(self, chunks: list[AnalysisChunk]) -> tuple[list[ExtractedRequirement], ExtractionUsage]: ...
 ```
 
-- 구현체는 `OpenAIRequirementProvider`(Responses structured outputs, `store=False`, 60s timeout)와 `FakeRequirementProvider`(합성 문구 매칭) 두 개뿐입니다.
+- 요구사항 추출 구현체는 `OpenAIRequirementProvider`(Responses structured outputs, `store=False`, 60s timeout), `LocalRequirementProvider`(OpenAI 호환 JSON schema, 300s timeout), `FakeRequirementProvider`입니다.
+- 최종 요약은 별도 `SummaryProvider` 경계와 같은 OpenAI/local/fake 선택을 사용하며 `(project_id, scope)`별로 저장됩니다. fingerprint가 바뀌면 이전 성공 결과를 유지한 채 Celery가 갱신합니다.
 - 팩터리(`create_requirement_provider`)는 `fake`를 test/demo 환경에서만 허용하고, `openai`는 API 키를 요구합니다.
-- 청킹은 결정론적입니다(블록 분할 없음, 대상 12,000자 / 상한 16,000자, 표는 원자적).
+- 청킹은 결정론적입니다(블록 분할 없음, 대상 4,000자, 2블록 overlap, 표는 원자적).
 - 로그에는 입력/출력 텍스트, 프롬프트, 키를 남기지 않습니다. 사용량(latency/token)만 기록합니다.
 
 ## 근거 검증 신뢰 경계
