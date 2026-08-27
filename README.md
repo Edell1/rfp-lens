@@ -110,17 +110,6 @@ cd e2e && npm install && npx playwright install chromium && npm test   # 브라�
 | `MAX_UPLOAD_BYTES` | 26214400 | 25 MiB |
 | `CELERY_TASK_ALWAYS_EAGER` | false | E2E/테스트용 동기 실행 |
 
-## 스크린샷/GIF 캡처 명령
-
-```bash
-# 화면 녹화(GIF): ffmpeg 예시 — Windows(gdigrab)는 화면 전체를 "desktop"으로 지정
-ffmpeg -f gdigrab -framerate 12 -offset_x 100 -offset_y 100 -video_size 1280x800 \
-       -i desktop -t 120 -vf "fps=12,scale=960:-1:flags=lanczos" docs/demo.gif
-# 특정 창만 캡처: -i title="브라우저 창 제목"
-```
-
-macOS/Linux는 `-f gdigrab` 대신 `-f avfoundation`/`-f x11grab`을 사용하세요.
-
 ## 보안 모델
 
 - 업로드는 시그니처 기반으로 형식 판별하며 ZIP 멤버 수(≤500), 전개 크기(≤100MiB), 압축비(≤100:1), 경로 탐색, XML 외부 엔티티를 거부합니다.
