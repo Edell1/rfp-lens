@@ -113,9 +113,10 @@ cd e2e && npm install && npx playwright install chromium && npm test   # 브라�
 ## 스크린샷/GIF 캡처 명령
 
 ```bash
-# 화면 녹화(GIF): ffmpeg 예시 — 1280x800 영역을 12fps로 캡처
+# 화면 녹화(GIF): ffmpeg 예시 — Windows(gdigrab)는 화면 전체를 "desktop"으로 지정
 ffmpeg -f gdigrab -framerate 12 -offset_x 100 -offset_y 100 -video_size 1280x800 \
-       -i : -t 120 -vf "fps=12,scale=960:-1:flags=lanczos" docs/demo.gif
+       -i desktop -t 120 -vf "fps=12,scale=960:-1:flags=lanczos" docs/demo.gif
+# 특정 창만 캡처: -i title="브라우저 창 제목"
 ```
 
 macOS/Linux는 `-f gdigrab` 대신 `-f avfoundation`/`-f x11grab`을 사용하세요.

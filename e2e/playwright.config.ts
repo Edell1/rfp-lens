@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "uv run alembic upgrade head && uv run uvicorn app.main:app --host 127.0.0.1 --port 8123",
+        "uv run python scripts/prepare_e2e_database.py && uv run alembic upgrade head && uv run uvicorn app.main:app --host 127.0.0.1 --port 8123",
       cwd: "../backend",
       url: `http://127.0.0.1:${apiPort}/api/health`,
       reuseExistingServer: !process.env.CI,
@@ -26,6 +26,8 @@ export default defineConfig({
       env: {
         RFP_LENS_ENVIRONMENT: "demo",
         RFP_LENS_AI_PROVIDER: "fake",
+        RFP_LENS_DATABASE_URL:
+          "postgresql+psycopg://rfp_lens:rfp_lens@127.0.0.1:5432/rfp_lens_e2e",
         RFP_LENS_JWT_SECRET: "e2e-demo-secret-that-is-long-enough-for-hs256",
         RFP_LENS_CELERY_TASK_ALWAYS_EAGER: "true",
       },

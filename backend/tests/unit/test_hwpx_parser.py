@@ -47,6 +47,23 @@ def test_hwpx_parser_follows_spine_order_not_filename_order(tmp_path: Path) -> N
     assert [block.text for block in result.blocks] == ["먼저 섹션", "나중 섹션"]
 
 
+def test_hwpx_parser_accepts_hancom_root_qualified_section_href(
+    tmp_path: Path,
+) -> None:
+    manifest = """<opf:package xmlns:opf="http://www.idpf.org/2007/opf">
+      <opf:manifest>
+        <opf:item id="section0" href="Contents/section0.xml" />
+      </opf:manifest>
+      <opf:spine><opf:itemref idref="section0" /></opf:spine>
+    </opf:package>"""
+    path = build_hwpx(tmp_path / "hancom.hwpx", content_hpf=manifest)
+
+    result = HwpxParser().parse(path)
+
+    assert result.blocks[0].text == "1. 지원 자격"
+    assert result.blocks[0].locator.section == "Contents/section0.xml"
+
+
 def test_hwpx_parser_rejects_parent_traversal(tmp_path: Path) -> None:
     path = build_hwpx(
         tmp_path / "traversal.hwpx", extra_members={"../escape.xml": b"escape"}
