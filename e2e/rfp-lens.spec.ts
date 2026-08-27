@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { buildHwpxBuffer } from "./fixtures/build-hwpx";
 
-test("register, create project, analyze hwpx, review, and export xlsx", async ({
+test("register, analyze hwpx, inspect overview, review, and export xlsx", async ({
   page,
 }) => {
   const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}@example.com`;
@@ -32,7 +32,13 @@ test("register, create project, analyze hwpx, review, and export xlsx", async ({
     timeout: 30_000,
   });
 
-  await page.getByRole("link", { name: "요구사항 검토" }).click();
+  await page.getByRole("link", { name: "최종 분석 결과" }).click();
+  await expect(page.getByRole("heading", { name: "최종 분석 결과" })).toBeVisible();
+  await expect(page.getByText("전체 요구사항").locator("..")).toContainText("2");
+  await page.getByRole("button", { name: /중소기업만 신청 가능/ }).click();
+  await expect(page.getByText("중소기업만 신청 가능", { exact: true }).last()).toBeVisible();
+  await page.getByRole("link", { name: "요구사항 검토에서 열기" }).click();
+  await expect(page).toHaveURL(/\/review\?requirement=/);
   const card = page.locator(".requirement-card", {
     hasText: "중소기업만 신청 가능",
   });

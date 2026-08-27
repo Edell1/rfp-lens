@@ -16,6 +16,7 @@ from app.db.models import (
     Evidence,
     JobState,
     Requirement,
+    SummaryState,
 )
 from app.parsing.types import DocumentBlock, SourceLocator
 from app.settings.service import resolve_runtime_settings
@@ -151,4 +152,45 @@ def run_analysis(document_id: str) -> str:
             document.error_message = None
 
         db.commit()
+        if document.state in {DocumentState.REVIEW_REQUIRED, DocumentState.PARTIAL}:
+            from app.overview.service import (
+                ensure_summary_cache,
+                load_summary_inputs,
+                lock_project_for_summary,
+                requirements_in_scope,
+                source_fingerprint,
+            )
+            from app.overview.tasks import run_summary
+
+            overview_inputs, _ = load_summary_inputs(db, document.project_id)
+            lock_project_for_summary(db, document.project_id)
+            overview_scope = "all"
+            overview_fingerprint = source_fingerprint(
+                requirements_in_scope(overview_inputs, overview_scope)
+            )
+            _, should_schedule, _ = ensure_summary_cache(
+                db,
+                document.project_id,
+                overview_scope,
+                overview_fingerprint,
+            )
+            db.commit()
+            if should_schedule:
+                try:
+                    run_summary.delay(
+                        str(document.project_id),
+                        overview_scope,
+                        overview_fingerprint,
+                    )
+                except Exception as error:  # noqa: BLE001 - analysis already succeeded
+                    summary, _, _ = ensure_summary_cache(
+                        db,
+                        document.project_id,
+                        overview_scope,
+                        overview_fingerprint,
+                    )
+                    summary.state = SummaryState.FAILED
+                    summary.error_code = "summary_queue_failed"
+                    summary.error_message = str(error)[:1000]
+                    db.commit()
         return document.state.value

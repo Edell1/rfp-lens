@@ -8,7 +8,7 @@ celery_app = Celery(
     "rfp_lens",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.documents.tasks", "app.analysis.tasks"],
+    include=["app.documents.tasks", "app.analysis.tasks", "app.overview.tasks"],
 )
 celery_app.conf.update(
     accept_content=["json"],

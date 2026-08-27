@@ -73,6 +73,18 @@ class ComplianceStatus(StrEnum):
     NOT_APPLICABLE = "not_applicable"
 
 
+class SummaryScope(StrEnum):
+    ALL = "all"
+    REVIEWED = "reviewed"
+
+
+class SummaryState(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
 def _enum_values(enum_class: type[StrEnum]) -> list[str]:
     return [member.value for member in enum_class]
 
@@ -92,6 +104,12 @@ importance_type = SqlEnum(
 )
 compliance_status_type = SqlEnum(
     ComplianceStatus, name="compliance_status", values_callable=_enum_values
+)
+summary_scope_type = SqlEnum(
+    SummaryScope, name="summary_scope", values_callable=_enum_values
+)
+summary_state_type = SqlEnum(
+    SummaryState, name="summary_state", values_callable=_enum_values
 )
 
 
@@ -143,6 +161,9 @@ class Project(TimestampMixin, Base):
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
     compliance_items: Mapped[list[ComplianceItem]] = relationship(
+        back_populates="project", cascade="all, delete-orphan", passive_deletes=True
+    )
+    analysis_summaries: Mapped[list[AnalysisSummary]] = relationship(
         back_populates="project", cascade="all, delete-orphan", passive_deletes=True
     )
 
@@ -350,3 +371,33 @@ class AnalysisSettingsRecord(TimestampMixin, Base):
     openai_model: Mapped[str | None] = mapped_column(String(120))
     local_base_url: Mapped[str | None] = mapped_column(String(500))
     local_model: Mapped[str | None] = mapped_column(String(120))
+
+
+class AnalysisSummary(TimestampMixin, Base):
+    __tablename__ = "analysis_summaries"
+    __table_args__ = (
+        UniqueConstraint("project_id", "scope", name="uq_analysis_summaries_scope"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    project_id: Mapped[UUID] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    scope: Mapped[SummaryScope] = mapped_column(summary_scope_type, nullable=False)
+    state: Mapped[SummaryState] = mapped_column(
+        summary_state_type, default=SummaryState.PENDING, nullable=False
+    )
+    provider: Mapped[str | None] = mapped_column(String(50))
+    model: Mapped[str | None] = mapped_column(String(120))
+    prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    source_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    highlights_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    highlights: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=list, nullable=False
+    )
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    project: Mapped[Project] = relationship(back_populates="analysis_summaries")

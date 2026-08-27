@@ -8,6 +8,7 @@ import { ProjectPage } from "../features/projects/ProjectPage";
 import { RequirementReviewPage } from "../features/requirements/RequirementReviewPage";
 import { CompliancePage } from "../features/compliance/CompliancePage";
 import { AnalysisSettingsPage } from "../features/settings/AnalysisSettingsPage";
+import { AnalysisOverviewPage } from "../features/overview/AnalysisOverviewPage";
 
 function RequireAuth({ children }: { children: React.ReactElement }): React.ReactElement {
   const { user, isLoading } = useAuth();
@@ -28,6 +29,7 @@ export function AppRouter(): React.ReactElement {
     <Route path="/projects" element={<RequireAuth><ProjectListPage /></RequireAuth>} />
     <Route path="/projects/:projectId" element={<RequireAuth><ProjectPage /></RequireAuth>} />
     <Route path="/projects/:projectId/review" element={<RequireAuth><RequirementReviewPage /></RequireAuth>} />
+    <Route path="/projects/:projectId/overview" element={<RequireAuth><AnalysisOverviewPage /></RequireAuth>} />
     <Route path="/projects/:projectId/compliance" element={<RequireAuth><CompliancePage /></RequireAuth>} />
     <Route path="/settings" element={<RequireAuth><AnalysisSettingsPage /></RequireAuth>} />
     <Route path="*" element={<Navigate to="/projects" replace />} />
